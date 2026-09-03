@@ -978,9 +978,10 @@
                             <svg class="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
                             </svg>
-                            半年各人员完成率排行
+                            人员完成率排行
                         </h3>
                         <div id="chartRec3" class="chart-container" style="height: 700px;"></div>
+                        <div id="recRankTable"></div>
                     </div>
                     
                     <!-- 标奢回收详细数据表格 -->
@@ -3059,8 +3060,50 @@
             renderRecycleMonthlyCompareChart(filteredData);
             renderRecycleRateTrendChart(filteredData);
             renderRecyclePersonRankChart(filteredData);
+            renderRecyclePersonRankTable(filteredData);
             updateRecycleStatCards(filteredData);
             updateRecTable(filteredData);
+        }
+
+        function getRecycleRemark(rate) {
+            if (rate >= 50) return '比例不减';
+            if (rate >= 25) return '比例减少0.5%';
+            return '比例减少1%';
+        }
+
+        function renderRecyclePersonRankTable(data) {
+            const container = document.getElementById('recRankTable');
+            if (!container) return;
+            const selectedMonthLabels = selectedMonths.map(m => m + '月');
+            const isAllMonths = selectedMonths.length === 0 || selectedMonths.length >= 12;
+            const peopleWithRate = data.people.map(p => {
+                let t = 0, a = 0;
+                p.monthly_data.forEach(md => {
+                    if (isAllMonths || selectedMonthLabels.includes(md.month)) { t += md.target; a += md.actual; }
+                });
+                const rate = t > 0 ? a / t * 100 : 0;
+                return { person: p.person, rate: rate, remark: getRecycleRemark(rate) };
+            }).sort((x, y) => y.rate - x.rate);
+            const rows = peopleWithRate.map((p, i) => {
+                const color = p.rate >= 100 ? '#10b981' : p.rate >= 75 ? '#3b82f6' : p.rate >= 50 ? '#eab308' : p.rate >= 25 ? '#f97316' : '#dc2626';
+                return `<tr>
+                            <td class="px-4 py-2 text-center">${i + 1}</td>
+                            <td class="px-4 py-2">${p.person}</td>
+                            <td class="px-4 py-2 text-right" style="color:${color};font-weight:600">${p.rate.toFixed(2)}%</td>
+                            <td class="px-4 py-2 text-center">${p.remark}</td>
+                        </tr>`;
+            }).join('');
+            container.innerHTML = `<div class="overflow-auto mt-4 rounded-lg border border-gray-200">
+                        <table class="data-table w-full text-sm">
+                            <thead><tr class="text-left text-medium border-b border-gray-200">
+                                <th class="px-4 py-3 text-center">排名</th>
+                                <th class="px-4 py-3">人员</th>
+                                <th class="px-4 py-3 text-right">完成率</th>
+                                <th class="px-4 py-3 text-center">备注</th>
+                            </tr></thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>`;
         }
         
         function getFilteredRecycleData() {
