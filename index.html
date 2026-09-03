@@ -1936,14 +1936,15 @@
         }
 
         function updateStatCards(data) {
-            const statData = data.filter(d => d.month <= 7);
+            const statData = data.filter(d => d.month <= 12);
+            const maxMonth = statData.length ? Math.max(...statData.map(d => d.month)) : 7;
             const total2025 = statData.reduce((s, d) => s + (d.actual_2025 || 0), 0);
             const totalTarget = statData.reduce((s, d) => s + (d.target_2026 || 0), 0);
             const totalActual = statData.reduce((s, d) => s + (d.actual_2026 || 0), 0);
             const achievement = totalTarget > 0 ? totalActual / totalTarget : 0;
             const yoy = total2025 > 0 ? (totalActual / total2025 - 1) : 0;
 
-            let cutoffText = '统计截止：2026年7月';
+            let cutoffText = '统计截止：2026年' + maxMonth + '月';
             if (selectedMonths.length > 0 && selectedMonths.length < 12) {
                 const maxMonth = Math.max(...selectedMonths);
                 cutoffText = `统计截止：2026年${maxMonth}月`;
@@ -2072,9 +2073,10 @@
         function updateChart2(data) {
             let months, achRates;
             
-            const monthlyData = data.filter(d => d.month <= 7 && d.target_2026 > 0 && d.actual_2026 != null);
+            const maxMonth = data.length ? Math.max(...data.map(d => d.month)) : 7;
+            const monthlyData = data.filter(d => d.month <= maxMonth && d.target_2026 > 0 && d.actual_2026 != null);
             const byMonth = {};
-            for (let m = 1; m <= 7; m++) byMonth[m] = { target: 0, actual: 0 };
+            for (let m = 1; m <= maxMonth; m++) byMonth[m] = { target: 0, actual: 0 };
 
             monthlyData.forEach(d => {
                 byMonth[d.month].target += d.target_2026 || 0;
@@ -2145,9 +2147,10 @@
                 months = totalMonthly.map(t => t.month + '月');
                 yoyRates = totalMonthly.map(t => t.yoy_growth != null ? t.yoy_growth * 100 : 0);
             } else {
-                const monthlyData = data.filter(d => d.month <= 7 && d.actual_2025 > 0 && d.actual_2026 != null);
+                const maxMonth = data.length ? Math.max(...data.map(d => d.month)) : 7;
+                const monthlyData = data.filter(d => d.month <= maxMonth && d.actual_2025 > 0 && d.actual_2026 != null);
                 const byMonth = {};
-                for (let m = 1; m <= 7; m++) byMonth[m] = { actual25: 0, actual26: 0 };
+                for (let m = 1; m <= maxMonth; m++) byMonth[m] = { actual25: 0, actual26: 0 };
 
                 monthlyData.forEach(d => {
                     byMonth[d.month].actual25 += d.actual_2025 || 0;
@@ -2229,7 +2232,8 @@
         }
 
         function updateChart4(data) {
-            const chartData = data.filter(d => d.month <= 7);
+            const maxMonth = data.length ? Math.max(...data.map(d => d.month)) : 7;
+            const chartData = data.filter(d => d.month <= maxMonth);
             const byPerson = {};
 
             chartData.forEach(d => {
@@ -2306,7 +2310,8 @@
         }
 
         function updateChart5(data) {
-            const chartData = data.filter(d => d.month <= 7);
+            const maxMonth = data.length ? Math.max(...data.map(d => d.month)) : 7;
+            const chartData = data.filter(d => d.month <= maxMonth);
             const byPerson = {};
 
             chartData.forEach(d => {
@@ -2381,7 +2386,8 @@
         }
 
         function updateChart6(data) {
-            const chartData = data.filter(d => d.month <= 7);
+            const maxMonth = data.length ? Math.max(...data.map(d => d.month)) : 7;
+            const chartData = data.filter(d => d.month <= maxMonth);
             const byPerson = {};
 
             chartData.forEach(d => {
@@ -2612,7 +2618,7 @@
         }
         
         function getFilteredCustomerData() {
-            const allMonths = ['1月', '2月', '3月', '4月', '5月', '6月', '7月'];
+            const allMonths = [...new Set(customerData.flatMap(p => p.monthly_data.map(md => md.month)))].sort((a, b) => parseInt(a) - parseInt(b));
             const selectedMonthLabels = selectedMonths.map(m => m + '月');
             const validMonths = selectedMonths.length > 0
                 ? selectedMonthLabels.filter(m => allMonths.includes(m))
@@ -3058,7 +3064,7 @@
         }
         
         function getFilteredRecycleData() {
-            const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月'];
+            const months = [...new Set(recycleData.flatMap(p => p.monthly_data.map(md => md.month)))].sort((a, b) => parseInt(a) - parseInt(b));
             const selectedMonthLabels = selectedMonths.map(m => m + '月');
             const validMonths = selectedMonthLabels.filter(m => months.includes(m));
             
