@@ -3463,7 +3463,7 @@
                             const person = sortedPeople.find(p => p.person === personName);
                             return person ? getRecycleRemark(person.completion_rate) : '';
                         },
-                        color: '#374151',
+                        color: getChartSecondaryColor(),
                         fontFamily: 'Noto Sans SC',
                         fontSize: 12,
                         fontWeight: 500
