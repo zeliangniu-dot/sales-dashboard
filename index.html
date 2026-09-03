@@ -3876,7 +3876,7 @@
                 };
             });
             renderHorizontalBarChart('chartStats3', commissionRateData, '提成比例',
-                v => v.toFixed(0) + '%', valueColors, 'commission_rate');
+                v => v.toFixed(1) + '%', valueColors, 'commission_rate');
 
             const salesCommissionData = peopleToShow.map(p => ({
                 name: p,
