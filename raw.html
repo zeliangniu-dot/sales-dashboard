@@ -1248,6 +1248,14 @@
             '尹君子': ['张玹溪', '韦佳丽', '尹君子', '赵仁卉', '廖婉桦', '周思怡'],
             '袁晓婷': ['干逢锡', '高正球', '袁晓婷', '何雨龙']
         };
+
+        // 2026年9月起新分组（仅适用于 9 月及之后的月份）
+        const leaderTeamMapNew = {
+            '耿雅慧': ['耿雅慧'],
+            '吴志盈': ['于瑞雪', '韦佳丽', '吴志盈', '黎超', '张贝利', '尹紫倩'],
+            '尹君子': ['吴蝶', '尹君子', '赵仁卉', '陈宇君', '张蕾', '丛晓美'],
+            '袁晓婷': ['干逢锡', '张玹溪', '梁秋霖', '高正球', '袁晓婷', '丁雅婷']
+        };
         
         const personAliasMap = {
             '袁晓婷': '袁晓婷-A姐',
@@ -1264,7 +1272,7 @@
             '丁丁': '丁雅婷'
         };
         
-        function getLeaderForPerson(personName) {
+        function getLeaderForPerson(personName, month) {
             const cleanName = personName.replace(/[-～~].*$/, '').trim();
             const namesToCheck = [personName, cleanName];
             
@@ -1277,19 +1285,27 @@
                 }
             }
             
-            for (const [leader, members] of Object.entries(leaderTeamMap)) {
-                for (const name of namesToCheck) {
-                    if (members.some(m => {
-                        if (m === name) return true;
-                        if (name.length >= 2 && m.includes(name)) return true;
-                        if (m.length >= 2 && name.includes(m)) return true;
-                        return false;
-                    })) {
-                        return leader;
+            const matchInMap = (map) => {
+                for (const [leader, members] of Object.entries(map)) {
+                    for (const name of namesToCheck) {
+                        if (members.some(m => {
+                            if (m === name) return true;
+                            if (name.length >= 2 && m.includes(name)) return true;
+                            if (m.length >= 2 && name.includes(m)) return true;
+                            return false;
+                        })) {
+                            return leader;
+                        }
                     }
                 }
+                return null;
+            };
+            // 有月份上下文：9 月起用新分组，9 月前用旧分组
+            if (month != null) {
+                return matchInMap(month >= 9 ? leaderTeamMapNew : leaderTeamMap);
             }
-            return null;
+            // 无月份上下文：新旧两组任一命中即返回
+            return matchInMap(leaderTeamMap) || matchInMap(leaderTeamMapNew);
         }
         
         function getTeamMembers(leader) {
@@ -1821,16 +1837,30 @@
             updateDashboard();
         }
         
-        function isPersonFilteredByLeader(personName) {
+        function isPersonFilteredByLeader(personName, month) {
             if (selectedLeaders.length === 0) return true;
-            const leader = getLeaderForPerson(personName);
-            return leader !== null && selectedLeaders.includes(leader);
+            if (month != null) {
+                const leader = getLeaderForPerson(personName, month);
+                return leader !== null && selectedLeaders.includes(leader);
+            }
+            if (selectedMonths.length > 0) {
+                // 已选月份：任一选中月份下的分组命中即可
+                return selectedMonths.some(m => {
+                    const leader = getLeaderForPerson(personName, m);
+                    return leader !== null && selectedLeaders.includes(leader);
+                });
+            }
+            // 全年（未选月份）：新旧任一分组命中即可
+            const lOld = getLeaderForPerson(personName, 1);
+            if (lOld !== null && selectedLeaders.includes(lOld)) return true;
+            const lNew = getLeaderForPerson(personName, 9);
+            return lNew !== null && selectedLeaders.includes(lNew);
         }
 
         function getFilteredData() {
             return rawData.filter(d => {
                 if (selectedMonths.length > 0 && !selectedMonths.includes(d.month)) return false;
-                if (selectedLeaders.length > 0 && !isPersonFilteredByLeader(d.person)) return false;
+                if (selectedLeaders.length > 0 && !isPersonFilteredByLeader(d.person, d.month)) return false;
                 if (selectedPersons.length > 0 && !selectedPersons.includes(d.person)) return false;
                 return true;
             });
@@ -2031,7 +2061,7 @@
                     type: 'category',
                     data: months,
                     axisLine: { lineStyle: { color: borderColor } },
-                    axisLabel: { show: false, color: secondaryColor, fontFamily: 'Noto Sans SC', fontSize: 12 },
+                    axisLabel: { show: true, color: secondaryColor, fontFamily: 'Noto Sans SC', fontSize: 12 },
                     axisTick: { show: false }
                 },
                 yAxis: {
