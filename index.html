@@ -700,6 +700,8 @@
                     <span class="w-1 h-8 bg-gradient-to-b from-blue-500 to-purple-600 rounded-full"></span>
                     1、销售部业绩
                 </h2>
+        <section class="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in" style="animation-delay: 0.15s;" id="progressCards"></section>
+
         <section class="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in" style="animation-delay: 0.2s; display: none;" id="statCards"></section>
 
         <section class="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1930,6 +1932,7 @@
             updatePersonFilterVisibility();
             const data = getFilteredData();
             updateStatCards(data);
+            updateProgressCards();
             updateChart1(data);
             updateChart2(data);
             updateChart3(data);
@@ -2002,6 +2005,68 @@
                     <div class="text-2xl font-bold bg-gradient-to-r ${s.color} bg-clip-text text-transparent">${s.value}</div>
                 </div>
             `).join('');
+        }
+
+        function updateProgressCards() {
+            const container = document.getElementById('progressCards');
+            if (!container) return;
+
+            // 基础数据：仅按人员/组长过滤（不按月份），用于按月累计
+            const base = rawData.filter(d => {
+                if (selectedLeaders.length > 0 && !isPersonFilteredByLeader(d.person, d.month)) return false;
+                if (selectedPersons.length > 0 && !selectedPersons.includes(d.person)) return false;
+                return true;
+            });
+
+            // 筛选月份：选中月份取最大值；未选则取 26 年最新有实际数据的月份
+            let cutoff;
+            if (selectedMonths.length > 0) {
+                cutoff = Math.max.apply(null, selectedMonths);
+            } else {
+                const ms = base.filter(d => d.actual_2026 != null).map(d => d.month);
+                cutoff = ms.length ? Math.max.apply(null, ms) : 9;
+            }
+
+            const sumField = (f, upto) => base.filter(d => d.month <= upto)
+                .reduce((s, d) => s + (Number(d[f]) || 0), 0);
+
+            const a25 = sumField('actual_2025', cutoff);     // 25年1~cutoff 实际
+            const a26 = sumField('actual_2026', cutoff);     // 26年1~cutoff 实际
+            const t26 = sumField('target_2026', cutoff);     // 26年1~cutoff 指标
+            const a25Full = sumField('actual_2025', 12);     // 25全年实际
+            const a26Full = sumField('actual_2026', 12);     // 26全年实际
+
+            const cards = [
+                { title: '25年同期对比', sub: '25年1-' + cutoff + '月实际 vs 26年1-' + cutoff + '月实际', target: a25, actual: a26 },
+                { title: '25全年 vs 26年迄今', sub: '25全年实际 vs 26年1-' + cutoff + '月实际', target: a25Full, actual: a26 },
+                { title: '26年指标达成', sub: '26年1-' + cutoff + '月指标 vs 实际', target: t26, actual: a26 },
+                { title: '26全年实际进度', sub: '26全年实际 vs 26年1-' + cutoff + '月实际', target: a26Full, actual: a26 }
+            ];
+
+            container.innerHTML = cards.map(c => {
+                const ratio = c.target > 0 ? c.actual / c.target : 0;
+                const pctText = c.target > 0 ? (ratio * 100).toFixed(1) + '%' : '—';
+                const barW = Math.max(0, Math.min(ratio, 1)) * 100;
+                const ok = ratio >= 1;
+                const barColor = ok ? 'linear-gradient(90deg,#34d399,#10b981)' : 'linear-gradient(90deg,#fbbf24,#f59e0b)';
+                const numColor = ok ? 'text-emerald-500' : 'text-amber-500';
+                return `
+                    <div class="card-glass rounded-2xl p-5 flex flex-col">
+                        <div class="text-xs text-light mb-1">${c.title}</div>
+                        <div class="flex items-baseline gap-1">
+                            <span class="text-2xl font-bold ${numColor}">${pctText}</span>
+                            <span class="text-[11px] text-light">达成</span>
+                        </div>
+                        <div class="mt-2 h-2 w-full rounded-full overflow-hidden" style="background:rgba(128,128,128,0.18)">
+                            <div class="h-full rounded-full" style="width:${barW}%;background:${barColor}"></div>
+                        </div>
+                        <div class="mt-2 flex justify-between text-[11px] text-light">
+                            <span>实际 ${formatNumber(c.actual)}</span>
+                            <span>指标 ${formatNumber(c.target)}</span>
+                        </div>
+                        <div class="mt-1 text-[11px] text-light" style="opacity:.65">${c.sub}</div>
+                    </div>`;
+            }).join('');
         }
 
         function aggregateByMonth(data) {
