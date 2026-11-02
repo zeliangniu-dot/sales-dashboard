@@ -600,6 +600,65 @@
             font-weight: 500;
             letter-spacing: 0.5px;
         }
+
+        /* ===== 进度卡（全员口径，含离职标注） ===== */
+        #progressCards { margin-bottom: 2rem; }
+        .pc-toolbar {
+            display:flex; align-items:center; gap:12px; margin-bottom:18px; flex-wrap:wrap;
+            padding:12px 16px; border-radius:14px;
+            background:var(--palette-surface-dark); border:1px solid var(--palette-border-dark);
+        }
+        body.light-theme .pc-toolbar { background:var(--palette-bg-light); border-color:var(--palette-border-light); }
+        .pc-toolbar-title { font-size:14px; font-weight:600; color:var(--palette-text-primary); }
+        .pc-label { font-size:13px; color:var(--palette-text-primary); }
+        .pc-select {
+            padding:7px 14px; border-radius:10px; border:1px solid var(--palette-border-dark);
+            background:var(--palette-surface-dark); font-size:14px; color:var(--palette-text-primary);
+            cursor:pointer; outline:none;
+        }
+        body.light-theme .pc-select { border-color:var(--palette-border-light); background:var(--palette-bg-light); }
+        .pc-badge-wide {
+            margin-left:auto; font-size:10px; padding:3px 10px; border-radius:999px;
+            background:var(--palette-surface-dark); color:var(--palette-text-secondary);
+            border:1px solid var(--palette-border-dark); white-space:nowrap;
+        }
+        body.light-theme .pc-badge-wide { background:var(--palette-bg-light); border-color:var(--palette-border-light); }
+        .pc-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+        @media (max-width:720px){ .pc-grid { grid-template-columns:1fr; } }
+        .pc-card {
+            background:#fff; border-radius:16px; padding:18px 18px 16px;
+            box-shadow:0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+            display:flex; flex-direction:column;
+        }
+        .pc-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; }
+        .pc-title { font-size:13px; font-weight:600; color:#374151; }
+        .pc-badge {
+            display:inline-block; font-size:10px; padding:2px 9px; border-radius:999px;
+            background:#eef2f7; color:#64748b; border:1px solid #cbd5e1; white-space:nowrap;
+        }
+        .pc-pct-row { display:flex; align-items:baseline; gap:6px; }
+        .pc-pct { font-size:30px; font-weight:800; letter-spacing:-.5px; color:#111827; font-variant-numeric:tabular-nums; }
+        .pc-pct.ok { color:#059669; }
+        .pc-pct.no { color:#d97706; }
+        .pc-pct-label { font-size:12px; color:#9ca3af; }
+        .pc-bar { position:relative; margin-top:12px; height:20px; width:100%; border-radius:7px; background:#e2e8f0; overflow:hidden; border:1px solid #cbd5e1; }
+        .pc-zone { position:absolute; top:0; bottom:0; }
+        .pc-z-in  { background:rgba(37,99,235,.16); }
+        .pc-z-dep { background:repeating-linear-gradient(45deg, rgba(15,23,42,.50) 0 3px, rgba(148,163,184,.34) 3px 7px); }
+        .pc-divider { position:absolute; top:0; bottom:0; width:2px; background:rgba(15,23,42,.55); }
+        .pc-fill { position:absolute; top:0; bottom:0; }
+        .pc-f-dep { background:#0f172a; border-left:2px solid #fff; }
+        .pc-totals { margin-top:10px; display:flex; justify-content:space-between; font-size:12px; color:#6b7280; }
+        .pc-totals b { color:#111827; font-variant-numeric:tabular-nums; font-weight:700; }
+        .pc-detail { margin-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .pc-dcol { background:#f8fafc; border:1px solid #eef2f7; border-radius:10px; padding:8px 10px; }
+        .pc-dcol.pc-d-dep { background:#eef2f7; border-color:#e2e8f0; }
+        .pc-dhead { font-size:11px; font-weight:600; color:#64748b; margin-bottom:5px; display:flex; align-items:center; gap:6px; }
+        .pc-dot { width:9px; height:9px; border-radius:3px; flex:0 0 auto; }
+        .pc-drow { display:flex; justify-content:space-between; align-items:baseline; font-size:11px; line-height:1.7; }
+        .pc-k { color:#9ca3af; }
+        .pc-v { color:#334155; font-variant-numeric:tabular-nums; font-weight:700; }
+        .pc-sub { margin-top:10px; font-size:11px; color:#9ca3af; line-height:1.5; }
     </style>
 
 
@@ -700,7 +759,7 @@
                     <span class="w-1 h-8 bg-gradient-to-b from-blue-500 to-purple-600 rounded-full"></span>
                     1、销售部业绩
                 </h2>
-        <section class="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in" style="animation-delay: 0.15s;" id="progressCards"></section>
+        <section class="mb-8 animate-fade-in" style="animation-delay: 0.15s;" id="progressCards"></section>
 
         <section class="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in" style="animation-delay: 0.2s; display: none;" id="statCards"></section>
 
@@ -2007,66 +2066,102 @@
             `).join('');
         }
 
+        var progressCutoff = null;
+
         function updateProgressCards() {
+            const pcData = (typeof SALES_DATA !== 'undefined') ? SALES_DATA.progressCardsData : undefined;
             const container = document.getElementById('progressCards');
             if (!container) return;
+            if (!pcData || !pcData.monthly || !pcData.monthly.length) { container.innerHTML = ''; return; }
 
-            // 基础数据：仅按人员/组长过滤（不按月份），用于按月累计
-            const base = rawData.filter(d => {
-                if (selectedLeaders.length > 0 && !isPersonFilteredByLeader(d.person, d.month)) return false;
-                if (selectedPersons.length > 0 && !selectedPersons.includes(d.person)) return false;
-                return true;
-            });
+            const pcMonthly = pcData.monthly;
+            const pcMonths = pcData.months || pcMonthly.map(r => r.m);
+            const pcDefaultCutoff = (pcData.defaultCutoff != null) ? pcData.defaultCutoff : Math.max.apply(null, pcMonths);
+            if (progressCutoff == null || !pcMonths.includes(progressCutoff)) progressCutoff = pcDefaultCutoff;
 
-            // 筛选月份：选中月份取最大值；未选则取 26 年最新有实际数据的月份
-            let cutoff;
-            if (selectedMonths.length > 0) {
-                cutoff = Math.max.apply(null, selectedMonths);
-            } else {
-                const ms = base.filter(d => d.actual_2026 != null).map(d => d.month);
-                cutoff = ms.length ? Math.max.apply(null, ms) : 9;
+            function cum(key, upto) {
+                return pcMonthly.filter(r => r.m <= upto).reduce((s, r) => s + (Number(r[key]) || 0), 0);
             }
 
-            const sumField = (f, upto) => base.filter(d => d.month <= upto)
-                .reduce((s, d) => s + (Number(d[f]) || 0), 0);
+            function build() {
+                const cutoff = progressCutoff;
+                const a25 = cum('a25', cutoff), a25d = cum('a25d', cutoff);
+                const a25Full = cum('a25', 12), a25Fd = cum('a25d', 12);
+                const a26 = cum('a26', cutoff), a26d = cum('a26d', cutoff);
+                const t26 = cum('t26', cutoff), t26d = cum('t26d', cutoff);
+                const t26Full = cum('t26', 12), t26Fd = cum('t26d', 12);
 
-            const a25 = sumField('actual_2025', cutoff);     // 25年1~cutoff 实际
-            const a26 = sumField('actual_2026', cutoff);     // 26年1~cutoff 实际
-            const t26 = sumField('target_2026', cutoff);     // 26年1~cutoff 指标
-            const a25Full = sumField('actual_2025', 12);     // 25全年实际
-            const t26Full = sumField('target_2026', 12);     // 26全年指标
+                const cards = [
+                    { title: '25年同期对比', sub: '26年1-' + cutoff + '月实际(全员) vs 25年1-' + cutoff + '月实际(全员)', target: a25, targetDep: a25d, actual: a26, actualDep: a26d },
+                    { title: '25全年 vs 26年迄今', sub: '26年1-' + cutoff + '月实际(全员) vs 25全年实际(全员)', target: a25Full, targetDep: a25Fd, actual: a26, actualDep: a26d },
+                    { title: '26年指标达成', sub: '26年1-' + cutoff + '月实际(全员) vs 指标(全员)', target: t26, targetDep: t26d, actual: a26, actualDep: a26d },
+                    { title: '26全年指标进度', sub: '26年1-' + cutoff + '月实际(全员) vs 26全年指标(全员)', target: t26Full, targetDep: t26Fd, actual: a26, actualDep: a26d }
+                ];
 
-            const cards = [
-                { title: '25年同期对比', sub: '25年1-' + cutoff + '月实际 vs 26年1-' + cutoff + '月实际', target: a25, actual: a26 },
-                { title: '25全年 vs 26年迄今', sub: '25全年实际 vs 26年1-' + cutoff + '月实际', target: a25Full, actual: a26 },
-                { title: '26年指标达成', sub: '26年1-' + cutoff + '月指标 vs 实际', target: t26, actual: a26 },
-                { title: '26全年指标进度', sub: '26全年指标 vs 26年1-' + cutoff + '月实际', target: t26Full, actual: a26 }
-            ];
+                const html = cards.map(c => {
+                    const ratio = c.target > 0 ? c.actual / c.target : 0;
+                    const pctText = c.target > 0 ? (ratio * 100).toFixed(1) + '%' : '—';
+                    const ok = ratio >= 1;
+                    const fillColor = ok ? '#10b981' : '#f59e0b';
+                    const tIn = c.target - c.targetDep;
+                    const zoneIn = c.target > 0 ? Math.max(0, Math.min(tIn / c.target * 100, 100)) : 100;
+                    const zoneDep = Math.max(0, 100 - zoneIn);
+                    const aIn = c.actual - c.actualDep;
+                    const fillPct = Math.max(0, Math.min(ratio, 1)) * 100;
+                    const depW = c.actual > 0 ? Math.min(fillPct, (c.actualDep / c.actual) * fillPct) : 0;
+                    const actW = fillPct - depW;
+                    return `
+                        <div class="pc-card">
+                            <div class="pc-head">
+                                <div class="pc-title">${c.title}</div>
+                                <span class="pc-badge">含离职</span>
+                            </div>
+                            <div class="pc-pct-row">
+                                <span class="pc-pct ${ok ? 'ok' : 'no'}">${pctText}</span>
+                                <span class="pc-pct-label">达成率</span>
+                            </div>
+                            <div class="pc-bar">
+                                <div class="pc-zone pc-z-in" style="left:0;width:${zoneIn}%"></div>
+                                <div class="pc-zone pc-z-dep" style="left:${zoneIn}%;width:${zoneDep}%"></div>
+                                <div class="pc-divider" style="left:${zoneIn}%"></div>
+                                <div class="pc-fill pc-f-in" style="left:0;width:${actW}%;background:${fillColor}"></div>
+                                <div class="pc-fill pc-f-dep" style="left:${actW}%;width:${depW}%"></div>
+                            </div>
+                            <div class="pc-totals">
+                                <span>实际合计 <b>${formatNumber(c.actual)}</b></span>
+                                <span>指标合计 <b>${formatNumber(c.target)}</b></span>
+                            </div>
+                            <div class="pc-detail">
+                                <div class="pc-dcol pc-d-in">
+                                    <div class="pc-dhead"><span class="pc-dot" style="background:${fillColor}"></span>在职</div>
+                                    <div class="pc-drow"><span class="pc-k">实际</span><span class="pc-v">${formatNumber(aIn)}</span></div>
+                                    <div class="pc-drow"><span class="pc-k">指标</span><span class="pc-v">${formatNumber(tIn)}</span></div>
+                                </div>
+                                <div class="pc-dcol pc-d-dep">
+                                    <div class="pc-dhead"><span class="pc-dot" style="background:#0f172a"></span>离职</div>
+                                    <div class="pc-drow"><span class="pc-k">实际</span><span class="pc-v">${formatNumber(c.actualDep)}</span></div>
+                                    <div class="pc-drow"><span class="pc-k">指标</span><span class="pc-v">${formatNumber(c.targetDep)}</span></div>
+                                </div>
+                            </div>
+                            <div class="pc-sub">${c.sub}</div>
+                        </div>`;
+                }).join('');
 
-            container.innerHTML = cards.map(c => {
-                const ratio = c.target > 0 ? c.actual / c.target : 0;
-                const pctText = c.target > 0 ? (ratio * 100).toFixed(1) + '%' : '—';
-                const barW = Math.max(0, Math.min(ratio, 1)) * 100;
-                const ok = ratio >= 1;
-                const barColor = ok ? 'linear-gradient(90deg,#34d399,#10b981)' : 'linear-gradient(90deg,#fbbf24,#f59e0b)';
-                const numColor = ok ? 'text-emerald-500' : 'text-amber-500';
-                return `
-                    <div class="card-glass rounded-2xl p-5 flex flex-col">
-                        <div class="text-xs text-light mb-1">${c.title}</div>
-                        <div class="flex items-baseline gap-1">
-                            <span class="text-2xl font-bold ${numColor}">${pctText}</span>
-                            <span class="text-[11px] text-light">达成</span>
+                container.innerHTML = `
+                    <div class="pc-wrap">
+                        <div class="pc-toolbar">
+                            <span class="pc-toolbar-title">销售部业绩 · 进度卡（全员口径，含离职标注）</span>
+                            <label class="pc-label">截止月份</label>
+                            <select id="pcMonthSelect" class="pc-select">${pcMonths.map(m => `<option value="${m}" ${m === cutoff ? 'selected' : ''}>${m}月</option>`).join('')}</select>
+                            <span class="pc-badge-wide">人员范围：20正式 + 7离职 = 27人（不含徐喆慧/BD等）</span>
                         </div>
-                        <div class="mt-2 h-2 w-full rounded-full overflow-hidden" style="background:rgba(128,128,128,0.18)">
-                            <div class="h-full rounded-full" style="width:${barW}%;background:${barColor}"></div>
-                        </div>
-                        <div class="mt-2 flex justify-between text-[11px] text-light">
-                            <span>实际 ${formatNumber(c.actual)}</span>
-                            <span>指标 ${formatNumber(c.target)}</span>
-                        </div>
-                        <div class="mt-1 text-[11px] text-light" style="opacity:.65">${c.sub}</div>
+                        <div class="pc-grid">${html}</div>
                     </div>`;
-            }).join('');
+
+                const sel = document.getElementById('pcMonthSelect');
+                if (sel) sel.onchange = function () { progressCutoff = parseInt(this.value, 10); build(); };
+            }
+            build();
         }
 
         function aggregateByMonth(data) {
