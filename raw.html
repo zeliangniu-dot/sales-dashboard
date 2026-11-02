@@ -623,6 +623,8 @@
             border:1px solid var(--palette-border-dark); white-space:nowrap;
         }
         body.light-theme .pc-badge-wide { background:var(--palette-bg-light); border-color:var(--palette-border-light); }
+        .pc-toolbar-hint { font-size:12px; color:var(--palette-text-secondary); margin-left:8px; }
+        .pc-empty { padding:34px 16px; text-align:center; color:#9ca3af; font-size:13px; line-height:1.6; background:#fff; border-radius:16px; box-shadow:0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04); }
         .pc-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
         @media (max-width:720px){ .pc-grid { grid-template-columns:1fr; } }
         .pc-card {
@@ -2066,8 +2068,6 @@
             `).join('');
         }
 
-        var progressCutoff = null;
-
         function updateProgressCards() {
             const pcData = (typeof SALES_DATA !== 'undefined') ? SALES_DATA.progressCardsData : undefined;
             const container = document.getElementById('progressCards');
@@ -2076,15 +2076,28 @@
 
             const pcMonthly = pcData.monthly;
             const pcMonths = pcData.months || pcMonthly.map(r => r.m);
-            const pcDefaultCutoff = (pcData.defaultCutoff != null) ? pcData.defaultCutoff : Math.max.apply(null, pcMonths);
-            if (progressCutoff == null || !pcMonths.includes(progressCutoff)) progressCutoff = pcDefaultCutoff;
+            const maxDataMonth = Math.max.apply(null, pcMonths);
+
+            // 截止月份跟随顶部全局月份筛选：未选（全年）-> 最新有数据月；已选 -> 取所选最大月
+            const cutoff = (selectedMonths.length > 0) ? Math.max.apply(null, selectedMonths) : maxDataMonth;
+
+            // 还没有数据的月份（如 11/12 月）不展示任何数据
+            if (cutoff > maxDataMonth) {
+                container.innerHTML = `
+                    <div class="pc-wrap">
+                        <div class="pc-toolbar">
+                            <span class="pc-toolbar-title">销售部业绩 · 进度卡（全员口径，含离职标注）</span>
+                            <span class="pc-badge-wide">人员范围：20正式 + 7离职 = 27人（不含徐喆慧/BD等）</span>
+                        </div>
+                        <div class="pc-empty">所选 ${cutoff} 月暂无数据，进度卡不展示</div>
+                    </div>`;
+                return;
+            }
 
             function cum(key, upto) {
                 return pcMonthly.filter(r => r.m <= upto).reduce((s, r) => s + (Number(r[key]) || 0), 0);
             }
 
-            function build() {
-                const cutoff = progressCutoff;
                 const a25 = cum('a25', cutoff), a25d = cum('a25d', cutoff);
                 const a25Full = cum('a25', 12), a25Fd = cum('a25d', 12);
                 const a26 = cum('a26', cutoff), a26d = cum('a26d', cutoff);
@@ -2147,21 +2160,19 @@
                         </div>`;
                 }).join('');
 
+                const cutoffLabel = (selectedMonths.length > 0 && selectedMonths.length < 12)
+                    ? `截止：2026年${cutoff}月`
+                    : `截止：2026年${cutoff}月（全年）`;
+
                 container.innerHTML = `
                     <div class="pc-wrap">
                         <div class="pc-toolbar">
                             <span class="pc-toolbar-title">销售部业绩 · 进度卡（全员口径，含离职标注）</span>
-                            <label class="pc-label">截止月份</label>
-                            <select id="pcMonthSelect" class="pc-select">${pcMonths.map(m => `<option value="${m}" ${m === cutoff ? 'selected' : ''}>${m}月</option>`).join('')}</select>
+                            <span class="pc-toolbar-hint">跟随顶部月份筛选 · ${cutoffLabel}</span>
                             <span class="pc-badge-wide">人员范围：20正式 + 7离职 = 27人（不含徐喆慧/BD等）</span>
                         </div>
                         <div class="pc-grid">${html}</div>
                     </div>`;
-
-                const sel = document.getElementById('pcMonthSelect');
-                if (sel) sel.onchange = function () { progressCutoff = parseInt(this.value, 10); build(); };
-            }
-            build();
         }
 
         function aggregateByMonth(data) {
